@@ -22,32 +22,29 @@ function App() {
   const steps = ['welcome', 'home', 'cart', 'checkout', 'receipt', 'feedback', 'profile', 'orderhistory'];
   const currentStepIndex = steps.indexOf(currentStep);
 
-  const navigateBack = () => {
-    const prevStepIndex = currentStepIndex - 1;
-    if (prevStepIndex >= 0) {
-      setCurrentStep(steps[prevStepIndex]);
-    }
-  };
-
-  const navigateNext = () => {
-    const nextStepIndex = currentStepIndex + 1;
-    if (nextStepIndex < steps.length) {
-      setCurrentStep(steps[nextStepIndex]);
-    }
+  const handlePayment = (data) => {
+    setTransactionData(data);
+    alert('Payment Successful!');
+    setCurrentStep('receipt');
   };
 
   const renderStep = () => {
     switch (currentStep) {
       case 'welcome': return <Welcome setCurrentStep={setCurrentStep} />;
-      case 'home': return <Home setCurrentStep={setCurrentStep} navigateBack={navigateBack} navigateNext={navigateNext} />;
-      case 'cart': return <CartSummary setCurrentStep={setCurrentStep} navigateBack={navigateBack} navigateNext={navigateNext} />;
-      case 'checkout': return <Checkout setCurrentStep={setCurrentStep} navigateBack={navigateBack} navigateNext={navigateNext} setTransactionData={setTransactionData} />;
-      case 'receipt': return <Receipt transactionData={transactionData} setCurrentStep={setCurrentStep} navigateBack={navigateBack} navigateNext={navigateNext} />;
-      case 'signin': return <SignIn setCurrentStep={setCurrentStep} navigateBack={navigateBack} />;
-      case 'signup': return <SignUp setCurrentStep={setCurrentStep} navigateBack={navigateBack} />;
-      case 'profile': return <Profile setCurrentStep={setCurrentStep} navigateBack={navigateBack} />;
-      case 'orderhistory': return <OrderHistory setCurrentStep={setCurrentStep} navigateBack={navigateBack} navigateNext={navigateNext} />;
-      case 'feedback': return <Feedback setCurrentStep={setCurrentStep} navigateBack={navigateBack} navigateNext={navigateNext} />;
+      case 'home': return <Home setCurrentStep={setCurrentStep} />;
+      case 'cart': return <CartSummary setCurrentStep={setCurrentStep} />;
+      case 'checkout': return <Checkout setCurrentStep={setCurrentStep} setTransactionData={setTransactionData} handlePayment={handlePayment} />;
+      case 'receipt': 
+        return transactionData ? (
+          <Receipt transactionData={transactionData} setCurrentStep={setCurrentStep} />
+        ) : (
+          <p>Error: No transaction data available. Please complete the checkout first.</p>
+        );
+      case 'signin': return <SignIn setCurrentStep={setCurrentStep} />;
+      case 'signup': return <SignUp setCurrentStep={setCurrentStep} />;
+      case 'profile': return <Profile setCurrentStep={setCurrentStep} />;
+      case 'orderhistory': return <OrderHistory setCurrentStep={setCurrentStep} />;
+      case 'feedback': return <Feedback setCurrentStep={setCurrentStep} />;
       default: return <Welcome setCurrentStep={setCurrentStep} />;
     }
   };
@@ -59,18 +56,17 @@ function App() {
           <IdleTimerWrapper setCurrentStep={setCurrentStep}>
             <div className="app">
               {currentStep !== 'welcome' && <Header setCurrentStep={setCurrentStep} />}
-              {currentStepIndex >= 0 && currentStep !== 'welcome' && (
-                <div className="progress-bar">
-                  {steps.slice(1).map((step, index) => (
-                    <div
-                      key={step}
-                      className={`progress-step ${index <= currentStepIndex - 1 ? 'active' : ''}`}
-                    >
-                      {step.charAt(0).toUpperCase() + step.slice(1)}
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div className="nav-buttons">
+                {['home', 'cart', 'checkout', 'receipt', 'feedback', 'profile', 'orderhistory'].map((step) => (
+                  <button
+                    key={step}
+                    onClick={() => setCurrentStep(step)}
+                    className={currentStep === step ? 'active' : ''}
+                  >
+                    {step.charAt(0).toUpperCase() + step.slice(1)}
+                  </button>
+                ))}
+              </div>
               {renderStep()}
             </div>
           </IdleTimerWrapper>
@@ -81,3 +77,5 @@ function App() {
 }
 
 export default App;
+
+

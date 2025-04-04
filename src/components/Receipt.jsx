@@ -1,64 +1,108 @@
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import jsPDF from 'jspdf';
-import { QRCodeSVG } from 'qrcode.react'; // Updated import
+import { QRCodeSVG } from 'qrcode.react';
 import logo from '../assets/logo.png';
 
 function Receipt({ transactionData, setCurrentStep }) {
   const { t } = useTranslation();
+  const [items, setItems] = useState([]);
+
+  // Use items from transactionData if available (using keys from your JSON: "Product", etc.)
+  useEffect(() => {
+    if (transactionData && transactionData.items) {
+      setItems(transactionData.items);
+    }
+  }, [transactionData]);
 
   const generatePDF = () => {
+    if (!transactionData || !transactionData.id) {
+      alert('Error: Transaction data is missing.');
+      return;
+    }
+
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
-    
-    // Add logo and header
-    doc.addImage(logo, 'PNG', 15, 10, 30, 30);
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('QUICKCART', pageWidth / 2, 25, { align: 'center' });
-    doc.setFontSize(12);
-    doc.text(t('motto'), pageWidth / 2, 32, { align: 'center' });
 
-    // Transaction details
-    let yPos = 45;
-    const addText = (text, x = 15) => {
-      doc.text(text, x, yPos);
-      yPos += 8;
+    const logoImg = new Image();
+    logoImg.src = logo;
+
+    logoImg.onload = function () {
+      try {
+        doc.addImage(logoImg, 'PNG', 15, 10, 30, 30);
+      } catch (error) {
+        console.warn('Logo not added, proceeding without it.');
+      }
+
+      // Header Section
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(20);
+      doc.text('QUICKCART', pageWidth / 2, 25, { align: 'center' });
+      doc.setLineWidth(0.5);
+      doc.line(10, 45, pageWidth - 10, 45);
+
+      // Transaction Details
+      let yPos = 55;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(12);
+      doc.text(`Transaction ID: ${transactionData.id}`, 15, yPos);
+      yPos += 7;
+      doc.text(`Customer: ${transactionData.customerName}`, 15, yPos);
+      yPos += 7;
+      doc.text(`Date: ${transactionData.date}`, 15, yPos);
+      yPos += 10;
+
+      // Items Section using keys from your JSON: "Product" and "Discounted Price"
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.text('Items Purchased:', 15, yPos);
+      yPos += 7;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(12);
+
+      if (Array.isArray(items) && items.length > 0) {
+        items.forEach(item => {
+          const itemName = item.Product || 'Unknown Item';
+          const itemPrice = item["Discounted Price"] ? `₹${item["Discounted Price"]}` : '₹0.00';
+          const fullText = `${itemName} ........ ${itemPrice}`;
+          doc.text(fullText, 15, yPos);
+          yPos += 7;
+        });
+      } else {
+        doc.text('No items available', 15, yPos);
+        yPos += 7;
+      }
+      yPos += 5;
+
+      // Total Section
+      doc.line(15, yPos, pageWidth - 15, yPos);
+      yPos += 10;
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Total: ₹${transactionData.total}`, 15, yPos);
+      yPos += 15;
+
+      // Footer Message
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(12);
+      doc.text("Thank you for shopping with QUICKCART!", pageWidth / 2, yPos, { align: 'center' });
+
+      const pdfName = `receipt_${transactionData.id}.pdf`;
+      doc.save(pdfName);
+      window.open(doc.output('bloburl'), '_blank');
     };
 
-    addText(`${t('transaction_id')}: ${transactionData.id}`);
-    addText(`${t('customer')}: ${transactionData.customerName}`);
-    addText(`${t('date')}: ${transactionData.date}`);
-    yPos += 5;
-
-    // Items table
-    doc.setFont('helvetica', 'bold');
-    addText(t('items_purchased'));
-    doc.setFont('helvetica', 'normal');
-    
-    transactionData.items.forEach(item => {
-      doc.text(item.name, 15, yPos);
-      doc.text(`₹${item.price}`, pageWidth - 20, yPos, { align: 'right' });
-      yPos += 8;
-    });
-
-    // Total
-    yPos += 8;
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${t('total')}: ₹${transactionData.total}`, pageWidth - 20, yPos, { align: 'right' });
-    yPos += 10;
-
-    // Payment details
-    addText(`${t('payment_method')}: ${transactionData.paymentMethod}`);
-    addText(`${t('payment_details')}: ${transactionData.paymentDetails || 'N/A'}`);
-
-    doc.save(`receipt_${transactionData.id}.pdf`);
+    logoImg.onerror = function () {
+      console.warn('Failed to load logo. Proceeding without it.');
+      doc.save(`receipt_${transactionData.id}.pdf`);
+      window.open(doc.output('bloburl'), '_blank');
+    };
   };
 
   const whatsappMessage = encodeURIComponent(
     `${t('receipt_summary')}:\n\n` +
-    `${t('transaction_id')}: ${transactionData.id}\n` +
-    `${t('total')}: ₹${transactionData.total}\n` +
-    `${t('payment_method')}: ${transactionData.paymentMethod}`
+      `${t('transaction_id')}: ${transactionData.id}\n` +
+      `${t('total')}: ₹${transactionData.total}\n` +
+      `${t('payment_method')}: ${transactionData.paymentMethod}`
   );
 
   return (
@@ -86,12 +130,19 @@ function Receipt({ transactionData, setCurrentStep }) {
           <div className="items-section">
             <h3 className="section-title">{t('items_purchased')}</h3>
             <ul className="items-list">
-              {transactionData.items.map((item, index) => (
-                <li key={index} className="item">
-                  <span>{item.name}</span>
-                  <span>₹{item.price}</span>
-                </li>
-              ))}
+              {Array.isArray(items) && items.length > 0 ? (
+                items.map((item, index) => (
+                  <li
+                    key={index}
+                    className={item.Product ? item.Product.replace(/\s+/g, '-').toLowerCase() : 'item'}
+                  >
+                    <span>{item.Product}</span>
+                    <span>₹{item["Discounted Price"]}</span>
+                  </li>
+                ))
+              ) : (
+                <li className="item">No items available</li>
+              )}
             </ul>
           </div>
 
@@ -133,8 +184,8 @@ function Receipt({ transactionData, setCurrentStep }) {
         <button onClick={generatePDF} className="action-btn download-btn">
           {t('download_pdf')}
         </button>
-        <button 
-          onClick={() => alert(t('receipt_email_sent'))} 
+        <button
+          onClick={() => alert(t('receipt_email_sent'))}
           className="action-btn email-btn"
         >
           {t('email_receipt')}
@@ -147,7 +198,7 @@ function Receipt({ transactionData, setCurrentStep }) {
         >
           {t('share_whatsapp')}
         </a>
-        <button 
+        <button
           onClick={() => setCurrentStep('feedback')}
           className="action-btn feedback-btn"
         >
